@@ -1,10 +1,10 @@
-package com.swust.server.handler;
+package com.swust.server.proxy.handler;
 
 import com.swust.common.protocol.Message;
 import com.swust.common.protocol.MessageHeader;
 import com.swust.common.protocol.MessageType;
-import com.swust.server.ExtranetServer;
-import com.swust.server.ServerManager;
+import com.swust.server.proxy.ExtranetServer;
+import com.swust.server.proxy.ServerManager;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 

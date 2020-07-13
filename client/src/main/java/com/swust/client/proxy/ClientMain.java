@@ -1,6 +1,6 @@
-package com.swust.client;
+package com.swust.client.proxy;
 
-import com.swust.client.handler.ClientHandler;
+import com.swust.client.proxy.handler.ClientHandler;
 import com.swust.common.cmd.CmdOptions;
 import com.swust.common.codec.MessageDecoder;
 import com.swust.common.codec.MessageEncoder;

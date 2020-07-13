@@ -9,7 +9,7 @@ import lombok.Getter;
  * @description :   消息类型
  */
 public enum MessageType {
-
+    /*****************************************以下作为代理相关命令*********************************************/
     /**
      * 客户端请求向服务端注册
      */
@@ -38,9 +38,41 @@ public enum MessageType {
     /**
      * 服务端集群的心跳包
      */
-    SERVER_KEEPALIVE(7);
+    SERVER_KEEPALIVE(7),
+
+
+    /*****************************************以下作为聊天服务相关命令*********************************************/
+
+    /**
+     * 客户端连接
+     */
+    CHAT_CLIENT_CONNECT(8),
+    /**
+     * 客户端发送消息
+     */
+    CHAT_CLIENT_SEND_MSG(9),
+    /**
+     * 客户端断开连接
+     */
+    CHAT_CLIENT_DISCONNECT(10),
+    /**
+     * 客户端重连
+     */
+    CHAT_CLIENT_RECONNECT(11),
+
+    /**
+     * 服务端推送消息
+     */
+    CHAT_SERVER_PUSH_MSG(12),
+    /**
+     * 心跳包
+     */
+    CHAT_KEEPALIVE(13),
+    ;
+
+
     @Getter
-    private int code;
+    private final int code;
 
     MessageType(int code) {
         this.code = code;

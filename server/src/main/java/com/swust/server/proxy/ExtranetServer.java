@@ -1,7 +1,7 @@
-package com.swust.server;
+package com.swust.server.proxy;
 
 import com.swust.common.config.LogUtil;
-import com.swust.server.handler.RemoteProxyHandler;
+import com.swust.server.proxy.handler.RemoteProxyHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.group.ChannelGroup;

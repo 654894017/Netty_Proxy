@@ -1,4 +1,4 @@
-package com.swust.server;
+package com.swust.server.proxy;
 
 import com.swust.common.protocol.Message;
 import io.netty.channel.Channel;

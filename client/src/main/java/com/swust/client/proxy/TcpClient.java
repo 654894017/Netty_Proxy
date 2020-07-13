@@ -1,4 +1,4 @@
-package com.swust.client;
+package com.swust.client.proxy;
 
 import com.swust.common.config.LogUtil;
 import io.netty.bootstrap.Bootstrap;

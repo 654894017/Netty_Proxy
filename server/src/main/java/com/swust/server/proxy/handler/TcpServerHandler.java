@@ -1,4 +1,4 @@
-package com.swust.server.handler;
+package com.swust.server.proxy.handler;
 
 import com.alibaba.fastjson.JSON;
 import com.swust.common.config.LogUtil;
@@ -6,8 +6,8 @@ import com.swust.common.exception.ServerException;
 import com.swust.common.handler.CommonHandler;
 import com.swust.common.protocol.Message;
 import com.swust.common.protocol.MessageType;
-import com.swust.server.ExtranetServer;
-import com.swust.server.ServerManager;
+import com.swust.server.proxy.ExtranetServer;
+import com.swust.server.proxy.ServerManager;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
@@ -20,11 +20,11 @@ import java.util.Objects;
 
 /**
  * @author : LiuMing
- * @date : 2019/11/4 10:50
- * @description :   tcp handler
+ * 2019/11/4 10:50
+ * tcp handler
  */
 public class TcpServerHandler extends CommonHandler {
-    private String password;
+    private final String password;
 
 
     /**

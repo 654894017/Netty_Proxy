@@ -1,4 +1,4 @@
-package com.swust.server;
+package com.swust.server.proxy;
 
 import com.swust.common.cmd.CmdOptions;
 import com.swust.common.codec.MessageDecoder;
@@ -6,7 +6,7 @@ import com.swust.common.codec.MessageEncoder;
 import com.swust.common.config.LogFormatter;
 import com.swust.common.config.LogUtil;
 import com.swust.common.constant.Constant;
-import com.swust.server.handler.TcpServerHandler;
+import com.swust.server.proxy.handler.TcpServerHandler;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;

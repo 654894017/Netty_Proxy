@@ -1,6 +1,6 @@
-package com.swust.client.handler;
+package com.swust.client.proxy.handler;
 
-import com.swust.client.ClientManager;
+import com.swust.client.proxy.ClientManager;
 import com.swust.common.protocol.Message;
 import com.swust.common.protocol.MessageHeader;
 import com.swust.common.protocol.MessageType;

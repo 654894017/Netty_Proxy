@@ -1,4 +1,4 @@
-package com.swust.client;
+package com.swust.client.proxy;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
