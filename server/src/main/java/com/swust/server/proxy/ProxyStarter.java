@@ -1,5 +1,6 @@
 package com.swust.server.proxy;
 
+import com.swust.common.Starter;
 import com.swust.common.cmd.CmdOptions;
 import com.swust.common.codec.MessageDecoder;
 import com.swust.common.codec.MessageEncoder;
@@ -16,22 +17,15 @@ import org.apache.commons.cli.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * @author : LiuMing
- * @date : 2019/11/4 9:46
- * @description :   服务端
+ * @author : MrLawrenc
+ * date  2020/7/13 23:43
+ * <p>
+ * 代理服务启动类
  */
-public class ServerMain {
-    private static Channel serverChannel;
+public class ProxyStarter implements Starter {
 
-    /**
-     * Apache Commons CLI是开源的命令行解析工具，它可以帮助开发者快速构建启动命令，并且帮助你组织命令的参数、以及输出列表等。
-     * 参考博文:https://www.cnblogs.com/xing901022/archive/2016/06/22/5608823.html
-     * CLI分为三个过程：
-     * <p>      </>定义阶段：在Java代码中定义Optin参数，定义参数、是否需要输入值、简单的描述等
-     * <p>      </>解析阶段：应用程序传入参数后，CLI进行解析
-     * <p>      </>询问阶段：通过查询CommandLine询问进入到哪个程序分支中
-     */
-    public static void main(String[] args) throws Exception {
+    @Override
+    public boolean start(String[] args) throws Exception {
         LogFormatter.init();
         /*
          *
@@ -69,13 +63,13 @@ public class ServerMain {
             int port = Integer.parseInt(cmd.getOptionValue(CmdOptions.PORT.getLongOpt(), Constant.DEFAULT_PORT));
             String password = cmd.getOptionValue(CmdOptions.PASSWORD.getLongOpt(), Constant.DEFAULT_PASSWORD);
 
-            start(port, password);
+            start0(port, password);
         }
+        return true;
     }
 
-
-    private static void start(int port, String password) throws Exception {
-        serverChannel = new TcpServer().initTcpServer(port, new ChannelInitializer<SocketChannel>() {
+    private void start0(int port, String password) throws Exception {
+        Channel serverChannel = new TcpServer().initTcpServer(port, new ChannelInitializer<SocketChannel>() {
             @Override
             public void initChannel(SocketChannel ch) {
                 TcpServerHandler tcpServerHandler = new TcpServerHandler(password);
@@ -86,12 +80,5 @@ public class ServerMain {
             }
         });
         LogUtil.infoLog("Server start success on port:{}", port);
-    }
-
-    /**
-     * 获取服务端channel，该channel永远存在，不会被主动关闭
-     */
-    public static Channel getServerChannel() {
-        return serverChannel;
     }
 }
