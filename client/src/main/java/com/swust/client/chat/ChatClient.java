@@ -1,4 +1,4 @@
-package com.swust.client.proxy.chat;
+package com.swust.client.chat;
 
 /**
  * @author : MrLawrenc

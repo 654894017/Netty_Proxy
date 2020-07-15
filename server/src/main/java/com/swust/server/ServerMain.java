@@ -1,5 +1,6 @@
 package com.swust.server;
 
+import com.swust.server.chat.ChatStarter;
 import com.swust.server.proxy.ProxyStarter;
 
 /**
@@ -18,7 +19,8 @@ public class ServerMain {
      * <p>      </>询问阶段：通过查询CommandLine询问进入到哪个程序分支中
      */
     public static void main(String[] args) throws Exception {
-        ProxyStarter.start(args);
+        new ProxyStarter().start(args);
+        new ChatStarter().start(args);
     }
 
 }

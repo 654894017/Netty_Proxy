@@ -1,7 +1,7 @@
 package com.swust.client.proxy.handler;
 
 import com.alibaba.fastjson.JSON;
-import com.swust.client.proxy.ClientMain;
+import com.swust.client.ClientMain;
 import com.swust.client.proxy.ClientManager;
 import com.swust.client.proxy.IntranetClient;
 import com.swust.common.config.LogUtil;
