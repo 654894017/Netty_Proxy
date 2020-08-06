@@ -97,7 +97,7 @@ public class ClientHandler extends CommonHandler {
             while (count < DEFAULT_TRY_COUNT) {
                 try {
                     TimeUnit.SECONDS.sleep(sleep);
-                    ClientMain.start();
+                    ClientMain.client.start0();
                     LogUtil.infoLog("Restart client success!");
                     return;
                 } catch (Throwable e) {

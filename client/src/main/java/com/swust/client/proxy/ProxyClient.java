@@ -84,7 +84,7 @@ public class ProxyClient implements Starter {
         return true;
     }
 
-    private void start0() throws Exception {
+    public void start0() throws Exception {
         TcpClient.connect(clientConfig.getServerHost(), Integer.parseInt(clientConfig.getServerPort()), new ChannelInitializer<SocketChannel>() {
             @Override
             public void initChannel(SocketChannel ch) {

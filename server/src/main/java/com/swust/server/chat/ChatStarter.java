@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class ChatStarter implements Starter {
     @Override
     public boolean start(String[] args) throws Exception {
-        int port = 1;
+        int port = 10009;
         start0(port);
         return true;
     }
@@ -35,6 +35,8 @@ public class ChatStarter implements Starter {
         ServerBootstrap bootstrap = new ServerBootstrap();
         NioEventLoopGroup boss = new NioEventLoopGroup(1);
         NioEventLoopGroup work = new NioEventLoopGroup();
+
+        ChatChannelHandler chatChannelHandler = new ChatChannelHandler();
         bootstrap.group(boss, work)
                 .channel(NioServerSocketChannel.class)
                 .handler(new LoggingHandler(LogLevel.INFO))
@@ -44,10 +46,11 @@ public class ChatStarter implements Starter {
                         socketChannel.pipeline()
                                 .addLast(new MessageDecoder(), new MessageEncoder())
                                 .addLast(new IdleStateHandler(60, 30, 0, TimeUnit.SECONDS))
-                                .addLast(new ChatChannelHandler());
+                                .addLast("chatChannelHandler", chatChannelHandler);
                     }
                 })
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
+
 
         bootstrap.bind(port).sync().addListener(fu -> {
             if (fu.isSuccess()) {
