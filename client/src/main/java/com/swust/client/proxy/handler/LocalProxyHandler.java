@@ -6,12 +6,14 @@ import com.swust.common.protocol.MessageHeader;
 import com.swust.common.protocol.MessageType;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author : LiuMing
- * @date : 2019/11/4 14:05
- * @description :   外部请求到公网服务器，公网服务器将请求转发到当前服务器，当前服务器建立客户端，访问本地服务
+ * 2019/11/4 14:05
+ * 外部请求到公网服务器，公网服务器将请求转发到当前服务器，当前服务器建立客户端，访问本地服务
  */
+@Slf4j
 public class LocalProxyHandler extends ChannelInboundHandlerAdapter {
 
     /**
@@ -20,8 +22,8 @@ public class LocalProxyHandler extends ChannelInboundHandlerAdapter {
      * <br>
      * 不使用channel是减少当前handler执行链
      */
-    private ChannelHandlerContext serverChannel;
-    private String remoteChannelId;
+    private final ChannelHandlerContext serverChannel;
+    private final String remoteChannelId;
 
     public LocalProxyHandler(ChannelHandlerContext serverChannel, String remoteChannelId) {
         this.serverChannel = serverChannel;
@@ -31,6 +33,8 @@ public class LocalProxyHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         ClientManager.ID_SERVICE_CHANNEL_MAP.put(remoteChannelId, ctx);
+        ClientManager.unlock(remoteChannelId);
+        //log.debug("put proxy channel id : {}", remoteChannelId);
     }
 
     @Override
@@ -51,7 +55,5 @@ public class LocalProxyHandler extends ChannelInboundHandlerAdapter {
         header.setType(MessageType.DISCONNECTED);
         header.setChannelId(remoteChannelId);
         serverChannel.writeAndFlush(message);
-
-        ClientManager.ID_SERVICE_CHANNEL_MAP.remove(remoteChannelId);
     }
 }

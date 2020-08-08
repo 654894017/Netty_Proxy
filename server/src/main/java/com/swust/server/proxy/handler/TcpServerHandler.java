@@ -1,37 +1,36 @@
-package com.swust.server.proxy.handler;
+package com.swust.server.handler;
 
-import com.alibaba.fastjson.JSON;
-import com.swust.common.config.LogUtil;
 import com.swust.common.exception.ServerException;
 import com.swust.common.handler.CommonHandler;
 import com.swust.common.protocol.Message;
 import com.swust.common.protocol.MessageType;
-import com.swust.server.proxy.ExtranetServer;
-import com.swust.server.proxy.ServerManager;
-import io.netty.channel.Channel;
+import com.swust.server.ExtranetServer;
+import com.swust.server.ServerManager;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author : LiuMing
  * 2019/11/4 10:50
  * tcp handler
  */
+@Slf4j
+@ChannelHandler.Sharable
 public class TcpServerHandler extends CommonHandler {
     private final String password;
-
 
     /**
      * 默认读超时上限
      */
     private static final byte DEFAULT_RECONNECTION_LIMIT = 5;
-    private static final Map<ChannelHandlerContext, Integer> DEFAULT_COUNT = new HashMap<>();
+    private static final Map<ChannelHandlerContext, Integer> DEFAULT_COUNT = new ConcurrentHashMap<>();
 
 
     public TcpServerHandler(String password) {
@@ -41,7 +40,8 @@ public class TcpServerHandler extends CommonHandler {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws java.lang.Exception {
         if (!(msg instanceof Message)) {
-            throw new Exception("Unknown message,msg type: " + msg.getClass().getName());
+            log.error("unknown message,msg type: {}  remote addr : {}", msg, ctx.channel().remoteAddress());
+            return;
         }
         Message message = (Message) msg;
         MessageType type = message.getHeader().getType();
@@ -57,7 +57,7 @@ public class TcpServerHandler extends CommonHandler {
                 // 心跳包
                 DEFAULT_COUNT.put(ctx, 0);
             } else {
-                throw new ServerException("Unknown type: " + type);
+                throw new ServerException("unknown type: " + type);
             }
         }
     }
@@ -69,53 +69,22 @@ public class TcpServerHandler extends CommonHandler {
      * @param ctx 与当前服务端保持连接的内网客户端channel
      */
     private void processRegister(ChannelHandlerContext ctx, Message message) {
-        Channel channel = ctx.channel();
         String password = message.getHeader().getPassword();
         if (this.password == null || !this.password.equals(password)) {
-            message.getHeader().setSuccess(false).setDescription("Token check failed!");
+            message.getHeader().setSuccess(false).setDescription("token check failed!");
+        } else {
+            message.getHeader().setSuccess(true).setDescription("success!");
         }
 
-        boolean needRegister = false;
         //客户端指定对外开放的端口
         int port = message.getHeader().getOpenTcpPort();
-        ExtranetServer result = ServerManager.hasServer4ChannelMap(channel, port);
-        if (result != null) {
-            LogUtil.warnLog("The current proxy({}) server already exists!", port);
-            LogUtil.warnLog("The current proxy server already exists and this proxy request is ignored!");
-            if (result.getChannel().isActive()) {
-                LogUtil.warnLog("The current proxy server already exists and this proxy request is ignored!");
-                return;
-            }
-            result.getChannel().close();
-            LogUtil.warnLog("The current proxy server is deactivated and is about to restart!");
-        } else {
-            ExtranetServer old = ServerManager.PORT_MAP.get(port);
-            if (Objects.isNull(old)) {
-                LogUtil.infoLog("There is no proxy server bound to the current client. A new proxy is about to be opened!");
-                LogUtil.infoLog("msg:{}", JSON.toJSONString(message));
-                needRegister = true;
-            } else {
-                LogUtil.infoLog("There is no proxy server bound to the current client,but a proxy server with the port({}) open is bound directly", port);
-                LogUtil.infoLog("msg:{}", JSON.toJSONString(message));
-                old.getInitializer().setClientCtx(ctx);
-                ServerManager.add2ChannelMap(channel, old);
-            }
+
+        boolean alreadyExists = ServerManager.alreadyExists(ctx, port);
+        if (!alreadyExists) {
+            ExtranetServer extranetServer = new ExtranetServer().initTcpServer(port, ctx);
+            ServerManager.addProxyServer(extranetServer);
         }
 
-        if (needRegister) {
-            try {
-                ExtranetServer extranetServer = new ExtranetServer().initTcpServer(port, ctx);
-                ServerManager.PORT_MAP.put(port, extranetServer);
-                ServerManager.add2ChannelMap(channel, extranetServer);
-                message.getHeader().setSuccess(true).setDescription("Server already start port on " + port);
-            } catch (Exception e) {
-                e.printStackTrace();
-                LogUtil.errorLog("Register fail, msg:{} port: ", message, port);
-                return;
-            }
-        } else {
-            message.getHeader().setSuccess(true).setDescription("A proxy server with the current port bound does not need to be opened(already open)!");
-        }
         message.getHeader().setType(MessageType.REGISTER_RESULT);
         ctx.writeAndFlush(message);
     }
@@ -124,40 +93,30 @@ public class TcpServerHandler extends CommonHandler {
      * 处理收到转发的内网响应数据包
      */
     private void processData(Message message) {
-        ChannelHandlerContext userCtx = ServerManager.findChannelByMsg(message);
+        ChannelHandlerContext userCtx = ServerManager.USER_CLIENT_MAP.get(message.getHeader().getChannelId());
         if (Objects.isNull(userCtx)) {
-            LogUtil.errorLog("Received Intranet proxy client message，but the corresponding proxy server was not found! ");
-            LogUtil.errorLog("msg:{}", message.getHeader().toString());
+            System.out.println(message.getHeader() + "  " + message.getData().length);
+            log.error("received intranet proxy client message，but the corresponding proxy server was not found! ");
         } else {
             userCtx.writeAndFlush(message.getData());
         }
     }
 
     /**
-     * 断开,先关闭外网暴露的代理，在关闭连接的客户端
+     * 断开,先关闭外网暴露的代理，再关闭连接的客户端
      */
-    private void processDisconnected(Message message) throws InterruptedException {
-        ChannelHandlerContext userCtx = ServerManager.findChannelByMsg(message);
-        if (Objects.isNull(userCtx)) {
-            LogUtil.warnLog("Received the message of disconnection of the internal network client, " +
-                    "but did not find  user client, may have closed!");
-        } else {
+    private void processDisconnected(Message message) {
+        ChannelHandlerContext userCtx = ServerManager.USER_CLIENT_MAP.get(message.getHeader().getChannelId());
+        if (Objects.nonNull(userCtx)) {
             userCtx.close();
         }
     }
 
-    /**
-     * 暴露的外网代理服务端资源清理
-     */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        LogUtil.errorLog("The client is disconnected");
-        List<ExtranetServer> servers = ServerManager.CHANNEL_MAP.get(ctx.channel());
-        if (Objects.isNull(servers) || servers.size() == 0) {
-            LogUtil.errorLog("The proxy server opened based on the client was not found!");
-        } else {
-            LogUtil.infoLog("Disconnect all proxy servers that are opened according to the client!");
-            servers.forEach(server -> server.getGroup().close());
+        log.error("the client({}) is disconnected", ctx.channel().remoteAddress());
+        if (ctx.channel().isActive()) {
+            ctx.close();
         }
     }
 
@@ -173,7 +132,7 @@ public class TcpServerHandler extends CommonHandler {
                 DEFAULT_COUNT.put(ctx, count++);
                 if (count > DEFAULT_RECONNECTION_LIMIT) {
                     DEFAULT_COUNT.remove(ctx);
-                    LogUtil.errorLog("Read idle  will loss connection. retryNum:{}", count);
+                    log.error("read idle  will loss connection. retryNum:{}", count);
                     ctx.close();
                 }
             }
@@ -181,6 +140,5 @@ public class TcpServerHandler extends CommonHandler {
             super.userEventTriggered(ctx, evt);
         }
     }
-
 
 }

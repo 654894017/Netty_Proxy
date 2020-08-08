@@ -1,9 +1,9 @@
-package com.swust.client.proxy.handler;
+package com.swust.client.handler;
 
 import com.alibaba.fastjson.JSON;
 import com.swust.client.ClientMain;
-import com.swust.client.proxy.ClientManager;
-import com.swust.client.proxy.IntranetClient;
+import com.swust.client.ClientManager;
+import com.swust.client.IntranetClient;
 import com.swust.common.config.LogUtil;
 import com.swust.common.handler.CommonHandler;
 import com.swust.common.protocol.Message;
@@ -13,8 +13,10 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -24,13 +26,13 @@ import java.util.stream.Collectors;
  * @date : 2019/11/4 13:42
  * @description :   客户端 handler
  */
+@Slf4j
 public class ClientHandler extends CommonHandler {
 
-
-    private List<Integer> ports;
-    private String password;
-    private List<String> proxyAddress;
-    private List<Integer> proxyPort;
+    private final List<Integer> ports;
+    private final String password;
+    private final List<String> proxyAddress;
+    private final List<Integer> proxyPort;
     /**
      * 默认重新拉起客户端的起始秒数
      */
@@ -62,8 +64,10 @@ public class ClientHandler extends CommonHandler {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws java.lang.Exception {
         if (!(msg instanceof Message)) {
-            throw new Exception("Unknown message type: " + msg.getClass().getName());
+            throw new Exception("unknown message type: " + msg.getClass().getName());
         }
+
+
         Message message = (Message) msg;
         MessageType type = message.getHeader().getType();
         if (type == MessageType.KEEPALIVE) {
@@ -78,7 +82,7 @@ public class ClientHandler extends CommonHandler {
         } else if (type == MessageType.DISCONNECTED) {
             processDisconnected(ctx.channel(), message);
         } else {
-            LogUtil.errorLog("Unknown  msg:{}", message.toString());
+            log.error("unknown  msg:{}", message.toString());
         }
     }
 
@@ -88,7 +92,7 @@ public class ClientHandler extends CommonHandler {
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        LogUtil.errorLog("Client trigger channelInactive,prepare to reconnect after closing the resource!");
+        log.error("client trigger channel inactive,prepare to reconnect after closing the resource!");
         ClientManager.reset();
 
         CompletableFuture.runAsync(() -> {
@@ -97,7 +101,7 @@ public class ClientHandler extends CommonHandler {
             while (count < DEFAULT_TRY_COUNT) {
                 try {
                     TimeUnit.SECONDS.sleep(sleep);
-                    ClientMain.client.start0();
+                    ClientMain.start();
                     LogUtil.infoLog("Restart client success!");
                     return;
                 } catch (Throwable e) {
@@ -105,9 +109,9 @@ public class ClientHandler extends CommonHandler {
                 }
                 sleep <<= 1;
                 count++;
-                LogUtil.warnLog("Restart client fail,This is the {} retry,will try again after {}s", count, sleep);
+                log.info("restart client fail,This is the {} retry,will try again after {}s", count, sleep);
             }
-            LogUtil.errorLog("The maximum number of retries reached,will exit");
+            log.error("the maximum number of retries reached,will exit");
             System.exit(0);
         });
     }
@@ -136,15 +140,15 @@ public class ClientHandler extends CommonHandler {
         int index = ports.indexOf(openTcpPort);
         try {
             IntranetClient intranetClient = new IntranetClient().connect(proxyAddress.get(index)
-                    , proxyPort.get(index), ctx, channelId);
+                    , proxyPort.get(index), ctx, channelId, ctx.channel().eventLoop());
             ClientManager.add2ChannelMap(channel, intranetClient);
         } catch (Exception e) {
             e.printStackTrace();
             Message message = new Message();
             MessageHeader header = message.getHeader();
             if (index == -1) {
-                LogUtil.errorLog("Client ports config:{}  current open tcp port:{}", JSON.toJSONString(ports), openTcpPort);
-                header.setDescription("Current msg port is null!");
+                log.error("client ports config:{}  current open tcp port:{}", JSON.toJSONString(ports), openTcpPort);
+                header.setDescription("current msg port is null!");
             }
             header.setType(MessageType.DISCONNECTED);
             header.setChannelId(receiveMessage.getHeader().getChannelId());
@@ -152,12 +156,25 @@ public class ClientHandler extends CommonHandler {
         }
     }
 
+    /**
+     * 转发代理消息到内网
+     */
     public void processData(Message message) {
         String channelId = message.getHeader().getChannelId();
         ChannelHandlerContext context = ClientManager.ID_SERVICE_CHANNEL_MAP.get(channelId);
         if (Objects.isNull(context)) {
-            LogUtil.errorLog("No proxy client was found by id!");
-            LogUtil.errorLog("msg:{}", message.getHeader().toString());
+
+            long start = System.currentTimeMillis();
+            ClientManager.lock(channelId);
+            ChannelHandlerContext newObj = ClientManager.ID_SERVICE_CHANNEL_MAP.get(channelId);
+            if (Objects.isNull(newObj)) {
+                log.error("no proxy client was found by id({}),will loss this msg,wait cos time:{}ms", channelId, (System.currentTimeMillis() - start));
+            } else {
+                if (log.isDebugEnabled()) {
+                    log.debug("wait proxy client connect success(channel id:{}),wait cos time:{}ms", channelId, System.currentTimeMillis() - start);
+                }
+                newObj.writeAndFlush(message.getData());
+            }
         } else {
             context.writeAndFlush(message.getData());
         }
@@ -166,7 +183,7 @@ public class ClientHandler extends CommonHandler {
     /**
      * 与代理服务端连接的用户客户端断开连接，处理资源，以及断开内网代理客户端
      */
-    private void processDisconnected(Channel channel, Message message) throws Exception {
+    private void processDisconnected(Channel channel, Message message) {
         ChannelHandlerContext context = ClientManager.ID_SERVICE_CHANNEL_MAP.get(message.getHeader().getChannelId());
         if (Objects.nonNull(context)) {
             context.close();
@@ -174,22 +191,6 @@ public class ClientHandler extends CommonHandler {
         }
     }
 
-
-    /**
-     * 维持内网连接,6h执行一次
-     */
-    public void heartPkg(LocalProxyHandler localProxyHandler) {
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    // localProxyHandler.getCtx().writeAndFlush("heart pkg");
-                } catch (Exception e) {
-                    LogUtil.warnLog("time  warning ..................");
-                }
-            }
-        }, 1000 * 60 * 60 * 6, 1000 * 60 * 60 * 6);
-    }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
