@@ -1,7 +1,7 @@
 package com.swust.server.chat;
 
 import com.swust.common.Starter;
-import com.swust.common.codec.MessageDecoder;
+import com.swust.common.codec.MessageDecoder0;
 import com.swust.common.codec.MessageEncoder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
@@ -44,7 +44,7 @@ public class ChatStarter implements Starter {
                     @Override
                     protected void initChannel(SocketChannel socketChannel) throws Exception {
                         socketChannel.pipeline()
-                                .addLast(new MessageDecoder(), new MessageEncoder())
+                                .addLast(new MessageDecoder0(), new MessageEncoder())
                                 .addLast(new IdleStateHandler(60, 30, 0, TimeUnit.SECONDS))
                                 .addLast("chatChannelHandler", chatChannelHandler);
                     }
