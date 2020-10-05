@@ -5,6 +5,7 @@ import com.swust.common.codec.MessageDecoder0;
 import com.swust.common.codec.MessageEncoder;
 import com.swust.common.constant.Constant;
 import com.swust.server.handler.MessageDispatcher;
+import com.swust.server.handler.InboundSelectorHandler;
 import com.swust.server.handler.TcpServerHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 public class ServerMain {
+    private static TcpServerHandler tcpServerHandler;
 
     /**
      * Apache Commons CLI是开源的命令行解析工具，它可以帮助开发者快速构建启动命令，并且帮助你组织命令的参数、以及输出列表等。
@@ -74,23 +76,21 @@ public class ServerMain {
         } else {
             int port = Integer.parseInt(cmd.getOptionValue(CmdOptions.PORT.getLongOpt(), Constant.DEFAULT_PORT));
             String password = cmd.getOptionValue(CmdOptions.PASSWORD.getLongOpt(), Constant.DEFAULT_PASSWORD);
-
+            tcpServerHandler = new TcpServerHandler(password);
             boolean ePoll = Epoll.isAvailable();
             log.info("Epoll : " + ePoll);
             log.info("netty version : {}", Version.identify().entrySet());
-            start(port, password);
+            start(port);
         }
     }
 
 
-    private static void start(int port, String password) throws Exception {
+    private static void start(int port) throws Exception {
         //全局流量整形
         GlobalTrafficShapingHandler globalTrafficShapingHandler =
                 new GlobalTrafficShapingHandler(new NioEventLoopGroup(), 100 * 1024 * 1024, 100 * 1024 * 1024);
 
-        TcpServerHandler tcpServerHandler = new TcpServerHandler(password);
-        //同一个channel可以使用不同的线程执行业务逻辑
-        UnorderedThreadPoolEventExecutor eventExecutors = new UnorderedThreadPoolEventExecutor(4, new DefaultThreadFactory("main-server-business"));
+
         initTcpServer(port, new ChannelInitializer<SocketChannel>() {
             @Override
             public void initChannel(SocketChannel ch) {
@@ -105,19 +105,31 @@ public class ServerMain {
                 //每5次write才flush 增强吞吐量 但是增加了延时
                 //ch.pipeline().addLast("flushEnhance",new FlushConsolidationHandler(5,true));
 
-
-                pipeline.addLast(new MessageDispatcher())
-                        .addLast("decode", new MessageDecoder0())
-                        .addLast("encode", new MessageEncoder());
-
-                //channel是永远绑定在一个eventLoop上的，所以在对确定的客户端，服务端永远是一个线程在处理。
-                //因此，当某一客户端发送消息很多，且服务端处理比较耗时时，那么使用NioEventLoopGroup作为线程池队列会无限增长导致oom。
-                //使用UnorderedThreadPoolEventExecutor可以解决。和NioEventLoopGroup主要区别于next方法
-                //ch.pipeline().addLast(businessExecutor, tcpServerHandler);
-                pipeline.addLast(eventExecutors, "businessHandler", tcpServerHandler);
+                //添加分发器
+                ch.pipeline().addLast("selector",new InboundSelectorHandler());
+                //addDefaultProxyHandler(pipeline);
             }
         });
 
+    }
+
+    /**
+     * 添加代理服务的加密、解密、业务处理 三个handler
+     */
+    public static void addDefaultProxyHandler(ChannelPipeline pipeline) {
+        pipeline.addLast(Constant.DECODE_HANDLER_NAME, new MessageDecoder0())
+                .addLast(Constant.ENCODE_HANDLER_NAME, new MessageEncoder())
+                .addLast(new MessageDispatcher());
+
+        //同一个channel可以使用不同的线程执行业务逻辑
+        UnorderedThreadPoolEventExecutor eventExecutors = new UnorderedThreadPoolEventExecutor(4, new DefaultThreadFactory("main-server-business"));
+
+
+        //channel是永远绑定在一个eventLoop上的，所以在对确定的客户端，服务端永远是一个线程在处理。
+        //因此，当某一客户端发送消息很多，且服务端处理比较耗时时，那么使用NioEventLoopGroup作为线程池队列会无限增长导致oom。
+        //使用UnorderedThreadPoolEventExecutor可以解决。和NioEventLoopGroup主要区别于next方法
+        //ch.pipeline().addLast(businessExecutor, tcpServerHandler);
+        pipeline.addLast(eventExecutors, Constant.BUSINESS_HANDLER_NAME, tcpServerHandler);
     }
 
     private static void initTcpServer(int port, ChannelInitializer<?> channelInitializer) throws Exception {

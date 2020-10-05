@@ -6,11 +6,12 @@ import lombok.experimental.Accessors;
 /**
  * @author : LiuMingyao
  * @date : 2019/11/4 15:10
- * @description : 消息头，禁止手动创建对象，一半序列化的时候框架创建,推荐使用new Message().getHeader()获取头信息对象
+ * 消息头，禁止手动创建对象，一般序列化的时候框架创建,推荐使用new Message().getHeader()获取头信息对象
  */
 @Data
 @Accessors(chain = true)
 public class MessageHeader {
+    private ProtocolType protocolType;
     /**
      * 消息类型
      */

@@ -3,6 +3,8 @@ package com.swust.common.codec;
 import com.alibaba.fastjson.JSON;
 import com.swust.common.protocol.Message;
 import com.swust.common.protocol.MessageHeader;
+import com.swust.common.protocol.MessageType;
+import com.swust.common.protocol.ProtocolType;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
@@ -33,7 +35,9 @@ public class MessageEncoder extends MessageToByteEncoder<Message> {
         Message message = new Message();
         message.setHeader(new MessageHeader().setChannelId("sss"));
         message.setData("sssssssasassaadads合适的还是".getBytes());
+        message.getHeader().setType(MessageType.CONNECTED).setProtocolType(ProtocolType.FILE_SYNC);
         byte[] bytes = JSON.toJSONBytes(message);
+        String string = JSON.toJSONString(message);
 
         Message m = JSON.parseObject(bytes, Message.class);
         System.out.println(new String(m.getHeader().getChannelId()));
