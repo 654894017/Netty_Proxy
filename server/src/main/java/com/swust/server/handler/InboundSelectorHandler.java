@@ -12,13 +12,7 @@ import io.netty.handler.codec.http.HttpServerExpectContinueHandler;
 import io.netty.util.ByteProcessor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * @author : MrLawrenc
@@ -77,65 +71,4 @@ public class InboundSelectorHandler extends ChannelInboundHandlerAdapter {
     }
 
 
-    /**
-     * Title: compress
-     * Description:
-     *
-     * @param str
-     * @return byte[]
-     */
-    public static byte[] compress(String str) {
-        if (str == null || str.length() == 0) {
-            return null;
-        }
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            GZIPOutputStream gzip = new GZIPOutputStream(out);
-            gzip.write(str.getBytes(StandardCharsets.UTF_8));
-            gzip.close();
-            return out.toByteArray();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        return null;
-
-    }
-
-
-    /**
-     * Title: uncompressToString
-     * Description:解压缩
-     *
-     * @param bytes
-     * @return
-     */
-    public static String uncompressToString(byte[] bytes) {
-        return uncompressToString(bytes, "utf-8");
-    }
-
-    public static void main(String[] args) throws UnsupportedEncodingException {
-        uncompressToString(compress("sssssssssssssss"));
-    }
-
-    public static String uncompressToString(byte[] bytes, String encoding) {
-        if (bytes == null || bytes.length == 0) {
-            return null;
-        }
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-        ByteArrayInputStream in = new ByteArrayInputStream(bytes);
-        try {
-            GZIPInputStream ungzip = new GZIPInputStream(in);
-            byte[] buffer = new byte[256];
-            int n;
-            while ((n = ungzip.read(buffer)) >= 0) {
-                out.write(buffer, 0, n);
-            }
-            return out.toString(encoding);
-        } catch (IOException e) {
-e.printStackTrace();
-        }
-        return null;
-    }
 }
