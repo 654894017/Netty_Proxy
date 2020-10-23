@@ -56,6 +56,10 @@ public class ClientMain {
             log.info("start read profile info");
             clientConfig = CommandUtil.clientConfigByProperties(profile);
         } else {
+            log.warn("##############################################################################################################################");
+            log.warn("#the one-to-one mode is about to be abandoned, please use the configuration file(one-to-more mode) to start the proxy client!#");
+            log.warn("##############################################################################################################################");
+            //一对一模式
             //opt和longOpt都可以拿到命令对应的值
             String serverAddress = cmd.getOptionValue(CmdOptions.HOST.getOpt());
             if (serverAddress == null) {
